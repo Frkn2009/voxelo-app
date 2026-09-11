@@ -28,11 +28,19 @@ class EditorialTheme {
       colorScheme: scheme,
       scaffoldBackgroundColor: VoxelithTokens.editorialPaper,
       fontFamily: VoxelithTokens.editorialSans,
-      fontFamilyFallback: const [VoxelithTokens.editorialArabic],
+      fontFamilyFallback: const [
+        VoxelithTokens.editorialArabic,
+        VoxelithTokens.editorialDevanagari,
+        VoxelithTokens.editorialThai,
+      ],
     );
     TextStyle heading(double size) => TextStyle(
       fontFamily: VoxelithTokens.editorialSerif,
-      fontFamilyFallback: const [VoxelithTokens.editorialArabic],
+      fontFamilyFallback: const [
+        VoxelithTokens.editorialArabic,
+        VoxelithTokens.editorialDevanagari,
+        VoxelithTokens.editorialThai,
+      ],
       fontSize: size,
       height: 1.15,
       fontWeight: FontWeight.w600,

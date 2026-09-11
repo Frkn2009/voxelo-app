@@ -120,6 +120,14 @@ ThemeData buildVoxelithTheme() {
   return ThemeData(
     useMaterial3: true,
     fontFamily: 'Manrope',
+    // Manrope/Sora yalnızca Latin/Kiril/Yunan kapsar — Arapça, Hintçe ve
+    // Tayca ders içeriği bu üç fallback olmadan boş kutucuk (tofu)
+    // gösterebilir. Aynı düzeltme editorial_theme.dart'ta da var.
+    fontFamilyFallback: const [
+      VoxelithTokens.editorialArabic,
+      VoxelithTokens.editorialDevanagari,
+      VoxelithTokens.editorialThai,
+    ],
     scaffoldBackgroundColor: Voxelith.snow,
     colorScheme: scheme,
     textTheme: text,

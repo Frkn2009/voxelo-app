@@ -16,6 +16,8 @@ class VoxelithTokens {
   static const editorialSerif = 'IBMPlexSerif';
   static const editorialSans = 'IBMPlexSans';
   static const editorialArabic = 'IBMPlexSansArabic';
+  static const editorialDevanagari = 'NotoSansDevanagari';
+  static const editorialThai = 'NotoSansThai';
   // Dark ink over the pale end keeps small CTA text legible.
   // The dark accent remains a narrow edge so it never sits behind the label.
   static const editorialCtaGradient = LinearGradient(

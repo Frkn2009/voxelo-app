@@ -97,3 +97,9 @@ flutter:
           weight: 400
         - asset: assets/fonts/editorial/IBMPlexSansArabic-SemiBold.ttf
           weight: 600
+    - family: NotoSansDevanagari
+      fonts:
+        - asset: assets/fonts/editorial/NotoSansDevanagari-Variable.ttf
+    - family: NotoSansThai
+      fonts:
+        - asset: assets/fonts/editorial/NotoSansThai-Variable.ttf
