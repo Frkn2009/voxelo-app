@@ -22,6 +22,19 @@ function base64FromArrayBuffer(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
+const TTS_CACHE_BUCKET = 'tts-cache';
+
+// Aynı (ses, metin) çifti tekrar istendiğinde ElevenLabs'e yeniden ödeme
+// yapmamak için içerik-adresli önbellek anahtarı. Ders cümleleri sabit
+// olduğu için bu anahtar tüm kullanıcılar arasında paylaşılır.
+async function cacheKeyFor(voiceId: string, text: string): Promise<string> {
+  const data = new TextEncoder().encode(`${voiceId}::${text}`);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 // Per-language voice override lookup. Operatör ElevenLabs Voice Library'den
 // her dil için gerçek bir ses seçtikten sonra `supabase secrets set
 // ELEVENLABS_VOICE_ID_<LANG>=<id>` çalıştırır (örn. ELEVENLABS_VOICE_ID_JA=...).
@@ -75,23 +88,6 @@ Deno.serve(async (request) => {
   if (!subscription || periodEnd <= Date.now()) return json({ error: 'plus_required' }, 403);
   const isBusiness = subscription.plan === 'business';
 
-  // Plus == pratikte sınırsız konuşma süresi (bkz. UserProfile.speakAllowance),
-  // yani TTS oynatma sayısında da istemci tarafında bir tavan yok. ~$0.0045/
-  // oynatma — en pahalı tek kalem bu, 4 Eylül'deki maliyet denetiminde
-  // 40'tan 8'e düşürüldü ki TÜM AI/ses kalemlerinin toplam worst-case'i
-  // aylık abonelik ücretini (~$65/yıl ≈ $5.42/ay) aşmasın. Business, 3 kat
-  // daha yüksek fiyatını ($200/yıl) karşılayan gerçek bir değer olarak
-  // 20/gün alır — bkz. docs/MALIYET_ANALIZI_2026_09.md.
-  const TTS_DAILY_LIMIT = 8;
-  const TTS_BUSINESS_DAILY_LIMIT = 20;
-  const { data: allowed, error: usageError } = await admin.rpc('try_consume_ai_usage', {
-    p_user_id: userData.user.id,
-    p_op: 'tts',
-    p_limit: isBusiness ? TTS_BUSINESS_DAILY_LIMIT : TTS_DAILY_LIMIT,
-  });
-  if (usageError) return json({ error: 'usage_check_failed' }, 502);
-  if (!allowed) return json({ error: 'daily_limit_reached' }, 429);
-
   let payload: { text?: unknown; voiceId?: unknown; lang?: unknown };
   try {
     payload = await request.json();
@@ -105,6 +101,38 @@ Deno.serve(async (request) => {
   const lang = typeof payload.lang === 'string' && payload.lang.length > 0 ? payload.lang : undefined;
   const voiceId = resolveVoiceId(requestedVoiceId, lang, defaultVoiceId);
   if (!text || text.length > 400) return json({ error: 'invalid_request' }, 400);
+
+  // Ders cümleleri sabittir (Scenario/Phrase/SpeakTurn içeriği) — aynı
+  // (ses, metin) çifti daha önce üretildiyse ElevenLabs'e hiç gitmeden
+  // önbellekten döneriz. Bu isabet ücretsizdir, bu yüzden günlük limite
+  // saymayız; yalnızca gerçekten yeni bir sentez limitten düşer.
+  const cacheKey = await cacheKeyFor(voiceId, text);
+  const cachePath = `${cacheKey}.mp3`;
+  const { data: cached } = await admin.storage.from(TTS_CACHE_BUCKET).download(cachePath);
+  if (cached) {
+    const cachedBuffer = await cached.arrayBuffer();
+    if (cachedBuffer.byteLength > 0) {
+      return json({ audioBase64: base64FromArrayBuffer(cachedBuffer), mime: 'audio/mpeg' });
+    }
+  }
+
+  // Plus == pratikte sınırsız konuşma süresi (bkz. UserProfile.speakAllowance),
+  // yani TTS oynatma sayısında da istemci tarafında bir tavan yok. ~$0.0045/
+  // oynatma — en pahalı tek kalem bu, 4 Eylül'deki maliyet denetiminde
+  // 40'tan 8'e düşürüldü ki TÜM AI/ses kalemlerinin toplam worst-case'i
+  // aylık abonelik ücretini (~$65/yıl ≈ $5.42/ay) aşmasın. Business, 3 kat
+  // daha yüksek fiyatını ($200/yıl) karşılayan gerçek bir değer olarak
+  // 20/gün alır — bkz. docs/MALIYET_ANALIZI_2026_09.md. Bu limit yalnızca
+  // önbellekte olmayan, gerçekten ElevenLabs'e giden istekler için geçerlidir.
+  const TTS_DAILY_LIMIT = 8;
+  const TTS_BUSINESS_DAILY_LIMIT = 20;
+  const { data: allowed, error: usageError } = await admin.rpc('try_consume_ai_usage', {
+    p_user_id: userData.user.id,
+    p_op: 'tts',
+    p_limit: isBusiness ? TTS_BUSINESS_DAILY_LIMIT : TTS_DAILY_LIMIT,
+  });
+  if (usageError) return json({ error: 'usage_check_failed' }, 502);
+  if (!allowed) return json({ error: 'daily_limit_reached' }, 429);
 
   const endpoint = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
   const voiceSettings = { stability: 0.6, similarity_boost: 0.85, use_speaker_boost: true };
@@ -141,6 +169,19 @@ Deno.serve(async (request) => {
 
   const audioBuffer = await providerResponse.arrayBuffer();
   if (audioBuffer.byteLength === 0) return json({ error: 'empty_provider_response' }, 502);
+
+  // Sonraki her istek (herhangi bir kullanıcıdan) bu isabeti önbellekten
+  // alsın diye sakla. Yükleme başarısız olsa bile yanıtı geciktirmeyiz ya
+  // da düşürmeyiz — önbellek yalnızca bir optimizasyon, doğruluk kaynağı
+  // değil.
+  try {
+    await admin.storage.from(TTS_CACHE_BUCKET).upload(cachePath, audioBuffer, {
+      contentType: 'audio/mpeg',
+      upsert: true,
+    });
+  } catch (cacheWriteError) {
+    console.error('TTS cache write failed', cacheWriteError);
+  }
 
   return json({ audioBase64: base64FromArrayBuffer(audioBuffer), mime: 'audio/mpeg' });
 });
