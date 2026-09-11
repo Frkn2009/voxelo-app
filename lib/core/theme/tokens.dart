@@ -4,6 +4,25 @@ import 'package:flutter/material.dart';
 class VoxelithTokens {
   VoxelithTokens._();
 
+  // Editorial Calm: isolated palette; existing themes retain their tokens.
+  static const editorialPaper = Color(0xFFF7F3EC);
+  static const editorialInk = Color(0xFF2B2620);
+  static const editorialMuted = Color(0xFF71665A);
+  static const editorialLine = Color(0xFFD9CFC1);
+  static const editorialAccent = Color(0xFFA24E30);
+  static const editorialAccentLight = Color(0xFFE08A63);
+  static const editorialOnAccent = editorialInk;
+  static const editorialTransparent = Color(0x00000000);
+  static const editorialSerif = 'IBMPlexSerif';
+  static const editorialSans = 'IBMPlexSans';
+  static const editorialArabic = 'IBMPlexSansArabic';
+  // Dark ink over the pale end keeps small CTA text legible.
+  // The dark accent remains a narrow edge so it never sits behind the label.
+  static const editorialCtaGradient = LinearGradient(
+    colors: [editorialAccentLight, editorialAccentLight, editorialAccent],
+    stops: [0, 0.86, 1],
+  );
+
   // Arka plan
   static const background = Color(0xFFF7F7F7);
   static const surface = Colors.white;

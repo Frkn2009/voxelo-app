@@ -31,8 +31,8 @@ void main() {
     }
   });
 
-  test('Spanish has 21 scenarios including A2/B1 and bonus packs', () {
-    expect(Catalog.forLang(LearnLang.es).length, 21);
+  test('Spanish has 29 scenarios including A2/B1, bonus and professional packs', () {
+    expect(Catalog.forLang(LearnLang.es).length, 29);
   });
 
   test('Arabic A1 pack exists', () {
@@ -75,12 +75,12 @@ void main() {
     }
   });
 
-  test('total scenario count is 572', () {
+  test('total scenario count is 668', () {
     var total = 0;
     for (final lang in LearnLang.values) {
       total += Catalog.forLang(lang).length;
     }
-    expect(total, 572);
+    expect(total, 668);
   });
 
   test('pronunciation scoring is honest and deterministic', () {

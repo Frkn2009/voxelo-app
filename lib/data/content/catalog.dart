@@ -3,6 +3,7 @@
 
 import '../models/models.dart';
 import 'intermediate_catalog.dart';
+import 'professional_catalog.dart';
 import 'extra/catalog_extra_batch_a.dart';
 import 'extra/catalog_extra_batch_b.dart';
 import 'extra/catalog_extra_batch_c.dart';
@@ -13,11 +14,23 @@ import 'extra/catalog_extra_batch_g.dart';
 import 'extra/catalog_extra_batch_h.dart';
 import 'extra/catalog_extra_batch_j.dart';
 import 'extra/catalog_extra_batch_k.dart';
+import 'expanded_catalog_tr.dart';
+import 'expanded_catalog_ja.dart';
+import 'expanded_catalog_pt.dart';
+import 'expanded_catalog_it.dart';
 
 class Catalog {
   static List<Scenario> forLang(LearnLang lang) {
     final foundation = _all.where((scenario) => scenario.lang == lang).toList();
-    return [...foundation, ...IntermediateCatalog.build(lang, foundation)];
+    return [
+      ...foundation,
+      ...IntermediateCatalog.build(lang, foundation),
+      ...ProfessionalCatalog.build(lang),
+      ...ExpandedCatalogTr.build(lang),
+      ...ExpandedCatalogJa.build(lang),
+      ...ExpandedCatalogPt.build(lang),
+      ...ExpandedCatalogIt.build(lang),
+    ];
   }
 
   static Scenario? byId(String id) {

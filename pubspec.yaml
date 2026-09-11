@@ -28,6 +28,9 @@ dependencies:
   supabase_flutter: ^2.8.0
   audioplayers: ^6.1.0
   purchases_flutter: ^10.9.1
+  google_fonts: ^8.2.1
+  phosphor_flutter: ^2.1.0
+  lottie: ^3.5.1
 
 dev_dependencies:
   flutter_test:
@@ -78,3 +81,19 @@ flutter:
     - family: Manrope
       fonts:
         - asset: assets/fonts/Manrope.ttf
+
+    - family: IBMPlexSerif
+      fonts:
+        - asset: assets/fonts/editorial/IBMPlexSerif-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/editorial/IBMPlexSerif-SemiBold.ttf
+          weight: 600
+    - family: IBMPlexSans
+      fonts:
+        - asset: assets/fonts/editorial/IBMPlexSans-Variable.ttf
+    - family: IBMPlexSansArabic
+      fonts:
+        - asset: assets/fonts/editorial/IBMPlexSansArabic-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/editorial/IBMPlexSansArabic-SemiBold.ttf
+          weight: 600

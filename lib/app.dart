@@ -6,8 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/amber_theme.dart';
 import 'core/theme/dark_theme.dart';
+import 'core/theme/editorial_theme.dart';
 import 'core/theme/legendary_theme.dart';
-import 'core/theme/voxelith_theme.dart';
 import 'data/models/models.dart';
 import 'data/notifications/notification_service.dart';
 import 'data/widgets/home_widget_service.dart';
@@ -33,7 +33,7 @@ class VoxelithApp extends ConsumerWidget {
         AppThemePreference.amber => buildVoxelithAmberTheme(),
         AppThemePreference.legendary => buildVoxelithLegendaryTheme(),
         AppThemePreference.legendaryLight => buildVoxelithLegendaryLightTheme(),
-        _ => buildVoxelithTheme(),
+        _ => EditorialTheme.light,
       },
       darkTheme: themePreference == AppThemePreference.legendary
           ? buildVoxelithLegendaryTheme()

@@ -67,8 +67,8 @@ class _VoxelithMarkPainter extends CustomPainter {
 
     // Balonun içindeki 4 çubuklu ekolayzır — sırayla zemin/mercan/
     // zemin/altın renginde, değişen yüksekliklerde bir konuşma ritmi.
-    final barColors = [backgroundColor, Voxelith.coral, backgroundColor, Voxelith.gold];
-    const heightsRatio = [0.15, 0.30, 0.19, 0.25];
+    final barColors = [backgroundColor, Voxelith.coral, Voxelith.gold, backgroundColor];
+    const heightsRatio = [0.19, 0.31, 0.31, 0.19];
     final barWidth = w * .065;
     final gap = w * .05;
     final totalWidth = barWidth * 4 + gap * 3;
