@@ -75,12 +75,12 @@ void main() {
     }
   });
 
-  test('total scenario count is 668', () {
+  test('total scenario count is 716', () {
     var total = 0;
     for (final lang in LearnLang.values) {
       total += Catalog.forLang(lang).length;
     }
-    expect(total, 668);
+    expect(total, 716);
   });
 
   test('pronunciation scoring is honest and deterministic', () {
