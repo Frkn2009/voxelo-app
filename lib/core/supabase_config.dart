@@ -1,16 +1,16 @@
 /// VOXELITH — Supabase bağlantı bilgileri.
 ///
-/// Bu iki değeri Supabase Dashboard → Project Settings (⚙) → API bölümünden
-/// kopyala ve buraya yapıştır:
-///   - "Project URL"          → url
-///   - "publishable" key      → publishableKey
+/// Değerler artık koda gömülmüyor; build/run sırasında --dart-define ile
+/// verilir, örn:
+///   flutter run --dart-define=SUPABASE_URL=https://xxx.supabase.co \
+///     --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
 ///
-/// Doldurulana kadar uygulama eskisi gibi tamamen yerel çalışır,
-/// hiçbir şey bozulmaz. Doldurunca bulut senkronu otomatik açılır.
+/// Verilmezse uygulama eskisi gibi tamamen yerel çalışır, hiçbir şey
+/// bozulmaz. Verilince bulut senkronu otomatik açılır.
 class SupaConfig {
-  static const String url = 'https://qkhmtmwfwyscvtveiwui.supabase.co';
+  static const String url = String.fromEnvironment('SUPABASE_URL');
   static const String publishableKey =
-      'sb_publishable_maEu9eoz4fuC_I17Vamrlg_NTtsjqzo';
+      String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
 
   /// Anahtarlar girildi mi? (yeni sb_ veya eski eyJ formatı)
   static bool get isSet =>
