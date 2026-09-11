@@ -115,10 +115,10 @@ void main() {
     },
   );
 
-  test('verified dictionary has six entries in all 30 languages', () {
+  test('verified dictionary has 56 entries in all 30 languages', () {
     for (final from in LearnLang.values) {
       final suggestions = OfflineTranslate.suggestions(from);
-      expect(suggestions.length, 6, reason: from.name);
+      expect(suggestions.length, 56, reason: from.name);
       for (final source in suggestions) {
         final hit = OfflineTranslate.translate(
           input: source,
