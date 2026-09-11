@@ -22,6 +22,10 @@ import 'expanded_catalog_pl.dart';
 import 'expanded_catalog_sv.dart';
 import 'expanded_catalog_da.dart';
 import 'expanded_catalog_no.dart';
+import 'expanded_catalog_fi.dart';
+import 'expanded_catalog_el.dart';
+import 'expanded_catalog_cs.dart';
+import 'expanded_catalog_ro.dart';
 
 class Catalog {
   static List<Scenario> forLang(LearnLang lang) {
@@ -38,6 +42,10 @@ class Catalog {
       ...ExpandedCatalogSv.build(lang),
       ...ExpandedCatalogDa.build(lang),
       ...ExpandedCatalogNo.build(lang),
+      ...ExpandedCatalogFi.build(lang),
+      ...ExpandedCatalogEl.build(lang),
+      ...ExpandedCatalogCs.build(lang),
+      ...ExpandedCatalogRo.build(lang),
     ];
   }
 
