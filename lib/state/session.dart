@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 
 import '../core/l10n/i18n.dart';
 import '../data/content/catalog.dart';
+import '../data/events/analytics_events.dart';
 import '../data/events/weekly_event.dart';
 import '../data/models/achievements.dart';
 import '../data/models/models.dart';
@@ -84,6 +85,13 @@ class SessionController extends Notifier<UserProfile> {
         bonusSpeakSeconds: 0,
         adsWatchedToday: 0,
       );
+      if (rolled.onboarded &&
+          rolled.onboardedDayKey.isNotEmpty &&
+          rolled.onboardedDayKey != today &&
+          !rolled.day1ReturnLogged) {
+        AnalyticsEvents.log(AnalyticsEvents.day1Return);
+        rolled = rolled.copyWith(day1ReturnLogged: true);
+      }
     }
     if (rolled.interpreterDayKey != today) {
       rolled = rolled.copyWith(
@@ -143,8 +151,41 @@ class SessionController extends Notifier<UserProfile> {
   Future<void> setCefr(Cefr c) => _save(state.copyWith(cefr: c));
   Future<void> setLearningStyle(LearningStyle s) =>
       _save(state.copyWith(learningStyle: s));
-  Future<void> finishOnboarding() =>
-      _save(state.copyWith(onboarded: true, streak: 1));
+  Future<void> setStrugglePoint(StrugglePoint s) =>
+      _save(state.copyWith(strugglePoint: s));
+
+  /// Plan önizlemesinde de değiştirilebilir olduğu için 5/10/15 dışına
+  /// düşerse en yakın geçerli değere yuvarlar.
+  Future<void> setDailyGoalMin(int minutes) {
+    final clamped = [5, 10, 15].reduce(
+      (a, b) => (minutes - a).abs() <= (minutes - b).abs() ? a : b,
+    );
+    return _save(state.copyWith(dailyGoalMin: clamped));
+  }
+
+  Future<void> setPracticeDays(Set<Weekday> days) =>
+      _save(state.copyWith(practiceDays: days));
+
+  /// Zaman dilimini mevcut hatırlatma-saati sistemine eşler
+  /// (bkz. `NotificationService`).
+  Future<void> setPracticeTimeOfDay(PracticeTimeOfDay timeOfDay) {
+    final hour = switch (timeOfDay) {
+      PracticeTimeOfDay.morning => 9,
+      PracticeTimeOfDay.afternoon => 14,
+      PracticeTimeOfDay.evening => 19,
+    };
+    return _save(
+      state.copyWith(
+        practiceTimeOfDay: timeOfDay,
+        reminderHour: hour,
+        notificationsEnabled: true,
+      ),
+    );
+  }
+
+  Future<void> finishOnboarding() => _save(
+    state.copyWith(onboarded: true, streak: 1, onboardedDayKey: _today()),
+  );
   Future<void> setPlus(bool v) => _save(state.copyWith(isPlus: v));
 
   Future<void> setBusiness(bool v) => _save(state.copyWith(isBusiness: v));

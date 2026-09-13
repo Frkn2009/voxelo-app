@@ -7,10 +7,12 @@ import 'package:go_router/go_router.dart';
 import '../../core/l10n/i18n.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/content/catalog.dart';
+import '../../data/events/analytics_events.dart';
 import '../../data/models/models.dart';
 import '../../features/guide/language_guide_screen.dart';
 import '../../state/session.dart';
 import '../../ui/widgets.dart';
+import 'plan_generator.dart';
 
 class OnboardingFlow extends ConsumerStatefulWidget {
   const OnboardingFlow({super.key});
@@ -24,6 +26,21 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   bool _storyDone = false;
   int _storyIndex = 0;
   final _storyController = PageController();
+  bool _planPreviewViewLogged = false;
+  double? _progress;
+
+  @override
+  void initState() {
+    super.initState();
+    AnalyticsEvents.log(AnalyticsEvents.onboardingStarted);
+  }
+
+  void _logAnswer(String questionId, String answer) {
+    AnalyticsEvents.log(AnalyticsEvents.onboardingQuestionAnswered, {
+      'question_id': questionId,
+      'answer': answer,
+    });
+  }
 
   // --- Seviye tespit testi (placement test) durumu ---
   // Self-report'un yerine, katalogdaki gerçek cümlelerden kısa bir
@@ -66,7 +83,27 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
       _why(i18n, p),
       _style(i18n, p),
       _level(i18n, p),
+      _struggle(p),
+      _duration(p),
+      _schedule(p),
+      _planPreview(p),
     ];
+    final scheduleIndex = pages.length - 2;
+    final planIndex = pages.length - 1;
+
+    if (step == planIndex && !_planPreviewViewLogged) {
+      _planPreviewViewLogged = true;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => AnalyticsEvents.log(AnalyticsEvents.planPreviewViewed),
+      );
+    }
+
+    final scheduleIncomplete =
+        step == scheduleIndex &&
+        (p.practiceDays.isEmpty || p.practiceTimeOfDay == null);
+
+    final targetProgress = (step + 1) / pages.length;
+    _progress ??= targetProgress;
 
     return Scaffold(
       body: SafeArea(
@@ -86,12 +123,18 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                 ],
               ),
               const SizedBox(height: 10),
-              LinearProgressIndicator(
-                value: (step + 1) / pages.length,
-                minHeight: 4,
-                borderRadius: BorderRadius.circular(4),
-                color: Voxelith.terr,
-                backgroundColor: Voxelith.line,
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: _progress, end: targetProgress),
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOut,
+                onEnd: () => _progress = targetProgress,
+                builder: (_, value, _) => LinearProgressIndicator(
+                  value: value,
+                  minHeight: 4,
+                  borderRadius: BorderRadius.circular(4),
+                  color: Voxelith.terr,
+                  backgroundColor: Voxelith.line,
+                ),
               ),
               SizedBox(height: step == 0 ? 14 : 28),
               if (step == 0) ...[
@@ -108,20 +151,52 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
                 ),
                 const SizedBox(height: 14),
               ],
-              Expanded(child: pages[step]),
-              ForestButton(
-                label: step == pages.length - 1
-                    ? i18n.startSpeak
-                    : i18n.continueCta,
-                onPressed: () async {
-                  if (step < pages.length - 1) {
-                    setState(() => step++);
-                  } else {
-                    await ref.read(sessionProvider.notifier).finishOnboarding();
-                    if (context.mounted) context.go('/app');
-                  }
-                },
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(0, 0.04),
+                            end: Offset.zero,
+                          ).animate(animation),
+                      child: child,
+                    ),
+                  ),
+                  child: KeyedSubtree(key: ValueKey(step), child: pages[step]),
+                ),
               ),
+              ForestButton(
+                label: step == planIndex ? 'Planımı kaydet' : i18n.continueCta,
+                onPressed: scheduleIncomplete
+                    ? null
+                    : () async {
+                        if (step < planIndex) {
+                          setState(() => step++);
+                        } else {
+                          AnalyticsEvents.log(
+                            AnalyticsEvents.onboardingCompleted,
+                          );
+                          await ref
+                              .read(sessionProvider.notifier)
+                              .finishOnboarding();
+                          if (context.mounted) context.go('/app');
+                        }
+                      },
+              ),
+              if (step == planIndex) ...[
+                const SizedBox(height: 8),
+                Center(
+                  child: TextButton(
+                    onPressed: () => context.push('/auth'),
+                    child: const Text('Hesap oluştur'),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -146,7 +221,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
           ChoiceTile(
             title: u.nativeName(),
             selected: p.uiLang == u,
-            onTap: () => ref.read(sessionProvider.notifier).setUi(u),
+            onTap: () {
+              ref.read(sessionProvider.notifier).setUi(u);
+              _logAnswer('native_lang', u.name);
+            },
           ),
       ],
     );
@@ -167,7 +245,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
             leading: Text(l.flag(), style: const TextStyle(fontSize: 22)),
             title: l.label(p.uiLang),
             selected: p.learnLang == l,
-            onTap: () => ref.read(sessionProvider.notifier).setLearn(l),
+            onTap: () {
+              ref.read(sessionProvider.notifier).setLearn(l);
+              _logAnswer('learn_lang', l.name);
+            },
           ),
       ],
     );
@@ -182,7 +263,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
           ChoiceTile(
             title: i18n.motive(m),
             selected: p.motive == m,
-            onTap: () => ref.read(sessionProvider.notifier).setMotive(m),
+            onTap: () {
+              ref.read(sessionProvider.notifier).setMotive(m);
+              _logAnswer('goal', m.name);
+            },
           ),
       ],
     );
@@ -222,9 +306,199 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
             title: entry.value.$1,
             subtitle: entry.value.$2,
             selected: p.learningStyle == entry.key,
-            onTap: () =>
-                ref.read(sessionProvider.notifier).setLearningStyle(entry.key),
+            onTap: () {
+              ref.read(sessionProvider.notifier).setLearningStyle(entry.key);
+              _logAnswer('learning_style', entry.key.name);
+            },
           ),
+      ],
+    );
+  }
+
+  static const _struggleLabels = {
+    StrugglePoint.vocabulary: 'Kelime hatırlamakta',
+    StrugglePoint.speaking: 'Konuşurken çekiniyorum',
+    StrugglePoint.grammar: 'Dilbilgisi kafamı karıştırıyor',
+    StrugglePoint.listening: 'Dinlediğimi anlamıyorum',
+  };
+
+  Widget _struggle(UserProfile p) {
+    return ListView(
+      children: [
+        Text(
+          'En çok nerede zorlanıyorsun?',
+          style: Theme.of(context).textTheme.displayMedium,
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'İlk derslerini buna göre ayarlarız.',
+          style: TextStyle(color: Voxelith.muted),
+        ),
+        const SizedBox(height: 20),
+        for (final entry in _struggleLabels.entries)
+          ChoiceTile(
+            title: entry.value,
+            selected: p.strugglePoint == entry.key,
+            onTap: () {
+              ref.read(sessionProvider.notifier).setStrugglePoint(entry.key);
+              _logAnswer('struggle_point', entry.key.name);
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget _duration(UserProfile p) {
+    const options = {5: '5 dakika', 10: '10 dakika', 15: '15+ dakika'};
+    return ListView(
+      children: [
+        Text(
+          'Günde ne kadar zaman ayırabilirsin?',
+          style: Theme.of(context).textTheme.displayMedium,
+        ),
+        const SizedBox(height: 20),
+        for (final entry in options.entries)
+          ChoiceTile(
+            title: entry.value,
+            selected: p.dailyGoalMin == entry.key,
+            onTap: () {
+              ref.read(sessionProvider.notifier).setDailyGoalMin(entry.key);
+              _logAnswer('daily_minutes', '${entry.key}');
+            },
+          ),
+      ],
+    );
+  }
+
+  static const _timeOfDayLabels = {
+    PracticeTimeOfDay.morning: 'Sabah',
+    PracticeTimeOfDay.afternoon: 'Öğlen',
+    PracticeTimeOfDay.evening: 'Akşam',
+  };
+
+  Widget _schedule(UserProfile p) {
+    return ListView(
+      children: [
+        Text(
+          'Hangi günler ve ne zaman pratik yapmak istersin?',
+          style: Theme.of(context).textTheme.displayMedium,
+        ),
+        const SizedBox(height: 20),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final day in Weekday.values)
+              _DayChip(
+                label: day.shortLabelTr,
+                selected: p.practiceDays.contains(day),
+                onTap: () {
+                  // `p` gelir build-time anlık görüntüsüdür; art arda hızlı
+                  // dokunuşlarda (henüz rebuild olmadan) bayat kalıp önceki
+                  // seçimi ezmemesi için güncel state'i burada tekrar okuyoruz.
+                  final current = ref.read(sessionProvider).practiceDays;
+                  final next = {...current};
+                  if (!next.remove(day)) next.add(day);
+                  ref.read(sessionProvider.notifier).setPracticeDays(next);
+                  _logAnswer('practice_days', next.map((d) => d.name).join(','));
+                },
+              ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        for (final entry in _timeOfDayLabels.entries)
+          ChoiceTile(
+            title: entry.value,
+            selected: p.practiceTimeOfDay == entry.key,
+            onTap: () {
+              ref
+                  .read(sessionProvider.notifier)
+                  .setPracticeTimeOfDay(entry.key);
+              _logAnswer('practice_time_of_day', entry.key.name);
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget _planPreview(UserProfile p) {
+    final plan = PlanGenerator.generate(p);
+    final days = Weekday.values
+        .where((d) => p.practiceDays.contains(d))
+        .map((d) => d.shortLabelTr)
+        .join(' / ');
+    final timeLabel = p.practiceTimeOfDay == null
+        ? ''
+        : _timeOfDayLabels[p.practiceTimeOfDay]!.toLowerCase();
+    final goalLabel = switch (p.motive) {
+      Motive.travel => 'Seyahat',
+      Motive.work => 'İş / Kariyer',
+      Motive.exam => 'Sınav / Okul',
+      Motive.life => 'Hobi / Merak',
+    };
+    final summary =
+        '$goalLabel için ${p.learnLang.label(p.uiLang)} öğreniyorsun, '
+        'günde ${p.dailyGoalMin} dakika, $days ${timeLabel}ları.';
+
+    return ListView(
+      children: [
+        Text(
+          'İşte senin planın',
+          style: Theme.of(context).textTheme.displayMedium,
+        ),
+        const SizedBox(height: 12),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          child: Text(
+            summary,
+            key: ValueKey('${p.dailyGoalMin}-$summary'),
+            style: const TextStyle(color: Voxelith.muted, height: 1.4),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          children: [
+            for (final minutes in [5, 10, 15])
+              _DayChip(
+                label: '$minutes dk',
+                selected: p.dailyGoalMin == minutes,
+                onTap: () {
+                  ref.read(sessionProvider.notifier).setDailyGoalMin(minutes);
+                  AnalyticsEvents.log(AnalyticsEvents.planDurationAdjusted, {
+                    'new_minutes': minutes,
+                  });
+                },
+              ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          child: Column(
+            key: ValueKey(plan.previewLessonTitles.join(',')),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final title in plan.previewLessonTitles)
+                VoxelithCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.play_circle_outline, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(title)),
+                    ],
+                  ),
+                ),
+            ].expand((w) sync* {
+              yield w;
+              yield const SizedBox(height: 10);
+            }).toList(),
+          ),
+        ),
       ],
     );
   }
@@ -364,7 +638,10 @@ class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
           ChoiceTile(
             title: _levelLabels[c]!,
             selected: p.cefr == c,
-            onTap: () => ref.read(sessionProvider.notifier).setCefr(c),
+            onTap: () {
+              ref.read(sessionProvider.notifier).setCefr(c);
+              _logAnswer('level', c.name);
+            },
           ),
       ],
     );
@@ -445,6 +722,65 @@ List<_PlacementQuestion> _buildPlacementQuestions(LearnLang lang, UiLang ui) {
     }
   }
   return questions;
+}
+
+/// Gün/dakika seçimi gibi kısa etiketli çoklu-seçim rozetleri için kompakt
+/// bir chip — tam genişlikli [ChoiceTile]'ın yeri dar seçeneklerde israf
+/// olduğu `_schedule` ve `_planPreview` ekranlarında kullanılır.
+class _DayChip extends StatefulWidget {
+  const _DayChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  State<_DayChip> createState() => _DayChipState();
+}
+
+class _DayChipState extends State<_DayChip> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _pressed ? 0.97 : 1,
+        duration: const Duration(milliseconds: 120),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: widget.selected
+                ? Theme.of(context).colorScheme.primaryContainer
+                : Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: widget.selected
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).dividerColor,
+              width: widget.selected ? 1.6 : 1,
+            ),
+          ),
+          child: Text(
+            widget.label,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _StorySlide {

@@ -72,6 +72,29 @@ enum Motive { work, travel, exam, life }
 
 enum Cefr { a1, a2, b1, b2 }
 
+/// Onboarding'in "En çok nerede zorlanıyorsun?" sorusunun cevabı.
+/// `PlanGenerator` bunu ilk derslerin egzersiz ağırlığına çevirir
+/// (bkz. lib/features/onboarding/plan_generator.dart).
+enum StrugglePoint { vocabulary, speaking, grammar, listening }
+
+/// Onboarding'in "Ne zaman pratik yapmak istersin?" sorusunun cevabı.
+/// Hatırlatma bildirimi saatine eşlenir (bkz. `SessionController.setPracticeSchedule`).
+enum PracticeTimeOfDay { morning, afternoon, evening }
+
+enum Weekday { mon, tue, wed, thu, fri, sat, sun }
+
+extension WeekdayX on Weekday {
+  String get shortLabelTr => switch (this) {
+    Weekday.mon => 'Pzt',
+    Weekday.tue => 'Sal',
+    Weekday.wed => 'Çrş',
+    Weekday.thu => 'Prş',
+    Weekday.fri => 'Cum',
+    Weekday.sat => 'Cmt',
+    Weekday.sun => 'Paz',
+  };
+}
+
 /// Kullanıcının konuşma pratiğinde tercih ettiği akış. Herkese aynı sabit
 /// Duy→Gölgele→Konuş→Düzelt döngüsünü dayatmak yerine, onboarding'de
 /// seçilen bu tercihe göre adımlar atlanır/tekrarlanır — bkz.
@@ -578,6 +601,11 @@ class UserProfile {
     required this.srs,
     required this.completedSceneIds,
     required this.learningStyle,
+    this.strugglePoint,
+    this.practiceDays = const {},
+    this.practiceTimeOfDay,
+    this.onboardedDayKey = '',
+    this.day1ReturnLogged = false,
   });
 
   final String profileId;
@@ -616,6 +644,13 @@ class UserProfile {
   final Map<String, int> srs;
   final Set<String> completedSceneIds;
   final LearningStyle learningStyle;
+  final StrugglePoint? strugglePoint;
+  final Set<Weekday> practiceDays;
+  final PracticeTimeOfDay? practiceTimeOfDay;
+  /// Onboarding'in bittiği gün (`yyyy-MM-dd`) — `day1_return` event'inin
+  /// tam olarak "kayıttan sonraki ilk dönüş günü"nde ateşlenmesi için.
+  final String onboardedDayKey;
+  final bool day1ReturnLogged;
 
   static const empty = UserProfile(
     profileId: 'main',
@@ -756,6 +791,11 @@ class UserProfile {
     Map<String, int>? srs,
     Set<String>? completedSceneIds,
     LearningStyle? learningStyle,
+    StrugglePoint? strugglePoint,
+    Set<Weekday>? practiceDays,
+    PracticeTimeOfDay? practiceTimeOfDay,
+    String? onboardedDayKey,
+    bool? day1ReturnLogged,
   }) {
     return UserProfile(
       profileId: profileId ?? this.profileId,
@@ -796,6 +836,11 @@ class UserProfile {
       srs: srs ?? this.srs,
       completedSceneIds: completedSceneIds ?? this.completedSceneIds,
       learningStyle: learningStyle ?? this.learningStyle,
+      strugglePoint: strugglePoint ?? this.strugglePoint,
+      practiceDays: practiceDays ?? this.practiceDays,
+      practiceTimeOfDay: practiceTimeOfDay ?? this.practiceTimeOfDay,
+      onboardedDayKey: onboardedDayKey ?? this.onboardedDayKey,
+      day1ReturnLogged: day1ReturnLogged ?? this.day1ReturnLogged,
     );
   }
 
@@ -840,6 +885,11 @@ class UserProfile {
     'srs': srs,
     'completedSceneIds': completedSceneIds.toList(),
     'learningStyle': learningStyle.name,
+    'strugglePoint': strugglePoint?.name,
+    'practiceDays': practiceDays.map((day) => day.name).toList(),
+    'practiceTimeOfDay': practiceTimeOfDay?.name,
+    'onboardedDayKey': onboardedDayKey,
+    'day1ReturnLogged': day1ReturnLogged,
   };
 
   factory UserProfile.fromJson(Map<String, dynamic> j) {
@@ -904,6 +954,16 @@ class UserProfile {
           LearningStyle.values.asNameMap()[j['learningStyle'] as String? ??
               'balanced'] ??
           LearningStyle.balanced,
+      strugglePoint: StrugglePoint.values.asNameMap()[j['strugglePoint']
+          as String?],
+      practiceDays: (j['practiceDays'] as List? ?? const [])
+          .map((value) => Weekday.values.asNameMap()['$value'])
+          .whereType<Weekday>()
+          .toSet(),
+      practiceTimeOfDay: PracticeTimeOfDay.values.asNameMap()[j['practiceTimeOfDay']
+          as String?],
+      onboardedDayKey: j['onboardedDayKey'] as String? ?? '',
+      day1ReturnLogged: j['day1ReturnLogged'] as bool? ?? false,
     );
   }
 }

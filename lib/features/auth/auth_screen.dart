@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/tokens.dart';
+import '../../data/events/analytics_events.dart';
 import '../../data/supabase/supa_service.dart';
 import '../../state/session.dart';
 import '../../ui/widgets.dart';
@@ -53,6 +54,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           return;
         }
         await _afterLogin();
+        AnalyticsEvents.log(AnalyticsEvents.signupCompleted);
       } else {
         await Supa.signIn(mail, pass);
         await _afterLogin();

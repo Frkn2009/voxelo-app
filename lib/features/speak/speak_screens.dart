@@ -6,6 +6,7 @@ import '../../core/theme/tokens.dart';
 import '../ai/screen/ai_feedback_screen.dart';
 import '../../data/ads/ad_service.dart';
 import '../../data/content/catalog.dart';
+import '../../data/events/analytics_events.dart';
 import '../../data/content/language_guides.dart';
 import '../../data/models/models.dart';
 import '../../data/speech/premium_tts_service.dart';
@@ -311,6 +312,9 @@ class _SpeakSessionScreenState extends ConsumerState<SpeakSessionScreen> {
   void initState() {
     super.initState();
     _prepareSpeech();
+    if (ref.read(sessionProvider).completedScenes == 0) {
+      AnalyticsEvents.log(AnalyticsEvents.firstLessonStarted);
+    }
   }
 
   Future<void> _prepareSpeech() async {
